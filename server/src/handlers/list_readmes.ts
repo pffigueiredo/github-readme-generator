@@ -1,16 +1,39 @@
+import { db } from '../db';
+import { generatedReadmesTable } from '../db/schema';
+import { desc, count } from 'drizzle-orm';
 import { type ListReadmesInput, type ListReadmesResponse } from '../schema';
 
-export async function listReadmes(input: ListReadmesInput): Promise<ListReadmesResponse> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to:
-    // 1. Query the database for generated READMEs with pagination
-    // 2. Return a list of READMEs with metadata (excluding full markdown content for performance)
-    // 3. Include total count for pagination purposes
-    
-    return Promise.resolve({
-        readmes: [], // Placeholder empty array
-        total: 0, // Placeholder total count
-        limit: input.limit,
-        offset: input.offset
-    } as ListReadmesResponse);
-}
+export const listReadmes = async (input: ListReadmesInput): Promise<ListReadmesResponse> => {
+  try {
+    // Query for READMEs with pagination and ordering
+    const readmes = await db.select({
+      id: generatedReadmesTable.id,
+      github_url: generatedReadmesTable.github_url,
+      repository_name: generatedReadmesTable.repository_name,
+      repository_description: generatedReadmesTable.repository_description,
+      created_at: generatedReadmesTable.created_at
+    })
+    .from(generatedReadmesTable)
+    .orderBy(desc(generatedReadmesTable.created_at))
+    .limit(input.limit)
+    .offset(input.offset)
+    .execute();
+
+    // Get total count for pagination
+    const totalResult = await db.select({ count: count() })
+      .from(generatedReadmesTable)
+      .execute();
+
+    const total = totalResult[0]?.count || 0;
+
+    return {
+      readmes,
+      total,
+      limit: input.limit,
+      offset: input.offset
+    };
+  } catch (error) {
+    console.error('List READMEs failed:', error);
+    throw error;
+  }
+};
